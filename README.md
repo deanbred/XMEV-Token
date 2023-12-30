@@ -1,4 +1,4 @@
-# BaseDev ERC20 Token on the new base blockchain 
+# MEV Resistant ERC20 Token
 
 Try running some of the following tasks:
 
