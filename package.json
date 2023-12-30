@@ -1,0 +1,50 @@
+{
+  "name": "basedev",
+  "version": "1.0.0",
+  "description": "ERC20 token",
+  "main": "index.js",
+  "repository": "https://github.com/deanbred/BaseDev-Token",
+  "author": "deanbred",
+  "license": "MIT",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy": "hardhat deploy"
+  },
+  "devDependencies": {
+    "@chainlink/contracts": "^0.6.1",
+    "@ethersproject/abi": "^5.4.7",
+    "@ethersproject/bytes": "^5.7.0",
+    "@ethersproject/hardware-wallets": "^5.7.0",
+    "@ethersproject/providers": "^5.7.2",
+    "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
+    "@nomicfoundation/hardhat-toolbox": "^2.0.2",
+    "@nomiclabs/hardhat-ethers": "npm:hardhat-deploy-ethers",
+    "@nomiclabs/hardhat-etherscan": "^3.0.0",
+    "@openzeppelin/contracts": "^4.8.3",
+    "@typechain/ethers-v5": "^10.1.0",
+    "@typechain/hardhat": "^6.1.2",
+    "@types/chai": "^4.3.4",
+    "@types/mocha": "^10.0.1",
+    "@types/node": "^18.15.11",
+    "@uniswap/v2-core": "^1.0.1",
+    "@uniswap/v2-periphery": "^1.1.0-beta.0",
+    "chai": "^4.2.0",
+    "dotenv": "^16.0.3",
+    "ethers": "5.5.1",
+    "hardhat": "^2.14.0",
+    "hardhat-contract-sizer": "^2.8.0",
+    "hardhat-deploy": "0.9.29",
+    "hardhat-gas-reporter": "^1.0.8",
+    "prettier": "^2.8.7",
+    "prettier-plugin-solidity": "^1.1.3",
+    "solidity-coverage": "^0.8.0",
+    "ts-node": "^10.9.1",
+    "typechain": "^8.1.0",
+    "typescript": "^5.0.4"
+  },
+  "dependencies": {
+    "node-gyp-build": "^4.6.0"
+  }
+}
