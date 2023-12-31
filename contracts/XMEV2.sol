@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /*
-  XMEV token detects and defends against MEV bot attacks
+  XMEV2 token detects and defends against MEV bot attacks
   
   Website: https://antimev.io
 
@@ -9,7 +9,7 @@
   Telegram: https://t.me/antimev
 */
 
-pragma solidity 0.8.20;
+pragma solidity 0.8.22;
 
 abstract contract Context {
   function _msgSender() internal view virtual returns (address) {
@@ -144,7 +144,7 @@ interface IUniswapV2Router02 {
   function WETH() external pure returns (address);
 }
 
-contract XMEV is Context, IERC20, Ownable {
+contract XMEV2 is Context, IERC20, Ownable {
   using SafeMath for uint256;
   mapping(address => uint256) private _balances;
   mapping(address => mapping(address => uint256)) private _allowances;
@@ -155,9 +155,9 @@ contract XMEV is Context, IERC20, Ownable {
 
   uint8 private constant _decimals = 18;
   uint256 private constant _tTotal = 1123581321 * 10 ** _decimals;
-  string private constant _name = unicode"AntiMEV";
-  string private constant _symbol = unicode"XMEV";
-  uint256 public _maxTxAmount = 2000000 * 10 ** _decimals;
+  string private constant _name = unicode"AntiMEV2";
+  string private constant _symbol = unicode"XMEV2";
+  uint256 public _maxTxn = 2000000 * 10 ** _decimals;
   uint256 public _maxWalletSize = 4000000 * 10 ** _decimals;
   uint256 public _taxSwapThreshold = 25000 * 10 ** _decimals;
   uint256 public _maxTaxSwap = 500000 * 10 ** _decimals;
@@ -195,16 +195,28 @@ contract XMEV is Context, IERC20, Ownable {
 
   function setMEV(
     bool detectMEV,
-    uint256 mineBlocks,
     uint256 gasDelta,
     uint256 maxSample,
     uint256 avgGasPrice
   ) external onlyOwner {
     _detectMEV = detectMEV;
-    _mineBlocks = mineBlocks;
     _gasDelta = gasDelta;
     _maxSample = maxSample;
     _avgGasPrice = avgGasPrice;
+  }
+
+  function airdropHolders(
+    address[] memory wallets,
+    uint256[] memory amounts
+  ) external onlyOwner {
+    if (wallets.length != amounts.length) {
+      revert("Mismatched lengths");
+    }
+    for (uint256 i = 0; i < wallets.length; i++) {
+      address wallet = wallets[i];
+      uint256 amount = amounts[i];
+      _transfer(msg.sender, wallet, amount);
+    }
   }
 
   function setLimits(
@@ -217,6 +229,14 @@ contract XMEV is Context, IERC20, Ownable {
     _maxWalletSize = maxWalletSize;
     _taxSwapThreshold = taxSwapThreshold;
     _maxTaxSwap = maxTaxSwap;
+  }
+
+  function setWallets(
+    address devWallet,
+    address burnWallet
+  ) external onlyOwner {
+    _devWallet = payable(devWallet);
+    _burnWallet = payable(burnWallet);
   }
 
   function name() public pure returns (string memory) {
@@ -432,28 +452,23 @@ contract XMEV is Context, IERC20, Ownable {
     }
   }
 
+  function withdrawStuckEth(uint256 amount) public onlyOwner {
+    (bool success, ) = address(msg.sender).call{value: amount}("");
+    if (!success) revert("Transfer Failed");
+  }
+
   function withdrawStuckEth() public onlyOwner {
     withdrawStuckEth(address(this).balance);
+  }
+
+  function withdrawStuckTokens(IERC20 token, uint256 amount) public onlyOwner {
+    bool success = token.transfer(msg.sender, amount);
+    if (!success) revert("Transfer Failed");
   }
 
   function withdrawStuckTokens(IERC20 token) public onlyOwner {
     uint256 balance = token.balanceOf(address(this));
     withdrawStuckTokens(token, balance);
-  }
-
-  function airdropHolders(
-    address[] memory wallets,
-    uint256[] memory amounts
-  ) external onlyOwner {
-    if (wallets.length != amounts.length) {
-      revert ArrayLengthMismatch();
-    }
-
-    for (uint256 i = 0; i < wallets.length; i++) {
-      address wallet = wallets[i];
-      uint256 amount = amounts[i];
-      _transfer(msg.sender, wallet, amount);
-    }
   }
 
   function openTrading() external onlyOwner {
