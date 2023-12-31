@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 /*
-  XMEV2 is the V2 release of the AntiMEV token 
+  XMEV is the V2 release of the AntiMEV token 
   
   Improved defenses against MEV bot attacks
   
@@ -101,7 +101,7 @@ interface IUniswapV2Router02 {
   function WETH() external pure returns (address);
 }
 
-contract XMEV2 is Context, IERC20, Ownable {
+contract XMEV is Context, IERC20, Ownable {
   mapping(address => uint256) private _balances;
   mapping(address => mapping(address => uint256)) private _allowances;
 
@@ -113,10 +113,9 @@ contract XMEV2 is Context, IERC20, Ownable {
 
   uint8 private constant _decimals = 18;
   uint256 private constant _tTotal = 1123581321 * 10 ** _decimals;
-  string private constant _name = unicode"AntiMEV2";
-  string private constant _symbol = unicode"XMEV2";
-  uint256 public _maxTxn = 2000000 * 10 ** _decimals;
-  uint256 public _maxWalletSize = 4000000 * 10 ** _decimals;
+  string private constant _name = unicode"XMEV";
+  string private constant _symbol = unicode"XMEV";
+  uint256 public _maxWalletSize = (_tTotal * 49) / 1000;
   uint256 public _taxSwapThreshold = 25000 * 10 ** _decimals;
   uint256 public _maxTaxSwap = 500000 * 10 ** _decimals;
 
@@ -130,7 +129,7 @@ contract XMEV2 is Context, IERC20, Ownable {
   bool private _detectMEV = true;
   uint256 public _gasDelta = 25; // increase in gas price to be considered bribe
   uint256 public _avgGasPrice = 1 * 10 ** 9; // initial rolling average gas price
-  uint256 private _maxSample = 20; // blocks used to calculate average gas price
+  uint256 private _maxSample = 25; // blocks used to calculate average gas price
   uint256 private _txCounter = 1; // counter used for average gas price
 
   modifier lockTheSwap() {
@@ -143,10 +142,10 @@ contract XMEV2 is Context, IERC20, Ownable {
     _devWallet = payable(devWallet);
     _burnWallet = payable(burnWallet);
     _airdropWallet = payable(airdropWallet);
-    _balances[_msgSender()] = (_tTotal * 880) / 1000;
-    _balances[_devWallet] = (_tTotal * 48) / 1000;
-    _balances[_burnWallet] = (_tTotal * 38) / 1000;
-    _balances[_airdropWallet] = (_tTotal * 34) / 1000;
+    _balances[_msgSender()] = (_tTotal * 890) / 1000;
+    _balances[_devWallet] = (_tTotal * 46) / 1000;
+    _balances[_burnWallet] = (_tTotal * 34) / 1000;
+    _balances[_airdropWallet] = (_tTotal * 30) / 1000;
 
     _isExcludedFromFee[address(this)] = true;
     _isExcludedFromFee[_msgSender()] = true;
@@ -182,12 +181,10 @@ contract XMEV2 is Context, IERC20, Ownable {
   }
 
   function setLimits(
-    uint256 maxTxn,
     uint256 maxWalletSize,
     uint256 taxSwapThreshold,
     uint256 maxTaxSwap
   ) external onlyOwner {
-    _maxTxn = maxTxn;
     _maxWalletSize = maxWalletSize;
     _taxSwapThreshold = taxSwapThreshold;
     _maxTaxSwap = maxTaxSwap;
@@ -295,7 +292,7 @@ contract XMEV2 is Context, IERC20, Ownable {
         // test for sandwich attack
         if (to != address(uniswapV2Router) && to != address(uniswapV2Pair)) {
           if (_lastTxBlock[tx.origin] == block.number) {
-            revert("Sandwich Attack Detected");
+            revert("XMEV: Sandwich Attack Detected");
           }
           _lastTxBlock[tx.origin] = block.number;
         }
@@ -310,9 +307,9 @@ contract XMEV2 is Context, IERC20, Ownable {
           _txCounter +
           tx.gasprice /
           _txCounter;
-        // test for gas bribe (front-run)
+        // test for gas bribe from bots
         if (tx.gasprice >= _avgGasPrice + (_avgGasPrice * (_gasDelta / 100))) {
-          revert("AntiMEV: Detected gas bribe, possible front-run");
+          revert("XMEV: Gas Bribe Detected");
         }
       }
 
@@ -321,17 +318,8 @@ contract XMEV2 is Context, IERC20, Ownable {
         to != address(uniswapV2Router) &&
         !_isExcludedFromFee[to]
       ) {
-        if (amount > _maxTxn) {
-          revert("Exceeds maxTxn");
-        }
         if (balanceOf(to) + amount > _maxWalletSize) {
-          revert("Exceeds maxWalletSize");
-        }
-      }
-
-      if (to == uniswapV2Pair && from != address(this)) {
-        if (amount > _maxTxn) {
-          revert("Exceeds maxTxn");
+          revert("XMEV: Exceeds maxWalletSize");
         }
       }
 
@@ -348,7 +336,7 @@ contract XMEV2 is Context, IERC20, Ownable {
           sendETHToFee(address(this).balance);
         }
       }
-      taxAmount = (amount * 1) / 100;
+      taxAmount = amount / 100;
     }
 
     if (taxAmount > 0) {
@@ -406,16 +394,6 @@ contract XMEV2 is Context, IERC20, Ownable {
 
   function withdrawStuckEth() public onlyOwner {
     withdrawStuckEth(address(this).balance);
-  }
-
-  function withdrawStuckTokens(IERC20 token, uint256 amount) public onlyOwner {
-    bool success = token.transfer(msg.sender, amount);
-    if (!success) revert("Transfer Failed");
-  }
-
-  function withdrawStuckTokens(IERC20 token) public onlyOwner {
-    uint256 balance = token.balanceOf(address(this));
-    withdrawStuckTokens(token, balance);
   }
 
   function openTrading() external onlyOwner {
