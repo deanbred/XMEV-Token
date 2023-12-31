@@ -5,13 +5,11 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   const { deploy, log } = deployments
   const { deployer } = await getNamedAccounts()
 
-  const ourToken = await deploy("BaseDev", {
+  const ourToken = await deploy("XMEV", {
     from: deployer,
     args: [
-      "0xfCD3842f85ed87ba2889b4D35893403796e67FF1",
-      "0x84374a8Eb994cFD039ea26b9124cB4B0548505bE",
-      "0x5842c77aec489e4aEd8f98be9d3c02d143c25472",
-      "0x3371B4E30f2B25FB8A54A4900Db8AeD106E9dcE4",
+      "0xc2657176e213DDF18646eFce08F36D656aBE3396",
+      "0x8B30998a9492610F074784Aed7aFDd682B23B416",
     ],
     log: true,
     waitConfirmations: network.config.blockConfirmations || 1,

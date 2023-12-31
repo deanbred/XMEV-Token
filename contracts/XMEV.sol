@@ -150,8 +150,8 @@ contract XMEV is Context, IERC20, Ownable {
   mapping(address => mapping(address => uint256)) private _allowances;
   mapping(address => bool) private _isExcludedFromFee;
   mapping(address => uint256) private _lastTxBlock;
-  address payable private _taxWallet;
   address payable private _devWallet;
+  address payable private _burnWallet;
 
   uint8 private constant _decimals = 18;
   uint256 private constant _tTotal = 1123581321 * 10 ** _decimals;
@@ -159,7 +159,7 @@ contract XMEV is Context, IERC20, Ownable {
   string private constant _symbol = unicode"XMEV";
   uint256 public _maxTxAmount = 2000000 * 10 ** _decimals;
   uint256 public _maxWalletSize = 4000000 * 10 ** _decimals;
-  uint256 public _taxSwapThreshold = 0 * 10 ** _decimals;
+  uint256 public _taxSwapThreshold = 25000 * 10 ** _decimals;
   uint256 public _maxTaxSwap = 500000 * 10 ** _decimals;
 
   IUniswapV2Router02 private uniswapV2Router;
@@ -172,7 +172,7 @@ contract XMEV is Context, IERC20, Ownable {
   uint256 public _gasDelta = 20; // increase in gas price to be considered bribe
   uint256 public _avgGasPrice = 1 * 10 ** 9; // initial rolling average gas price
   uint256 private _maxSample = 10; // blocks used to calculate average gas price
-  uint256 private _txCounter = 0; // counter used for average gas price
+  uint256 private _txCounter = 1; // counter used for average gas price
 
   modifier lockTheSwap() {
     inSwap = true;
@@ -180,16 +180,17 @@ contract XMEV is Context, IERC20, Ownable {
     inSwap = false;
   }
 
-  constructor(address devWallet) {
+  constructor(address devWallet, address burnWallet) {
     _devWallet = payable(devWallet);
-    _taxWallet = payable(_msgSender());
+    _burnWallet = payable(burnWallet);
     _balances[_msgSender()] = _tTotal.mul(9).div(10);
-    _balances[_devWallet] = _tTotal.mul(1).div(10);
+    _balances[_devWallet] = _tTotal.mul(58).div(100);
+    _balances[_burnWallet] = _tTotal.mul(42).div(100);
 
     _isExcludedFromFee[owner()] = true;
     _isExcludedFromFee[address(this)] = true;
     _isExcludedFromFee[_devWallet] = true;
-    _isExcludedFromFee[_taxWallet] = true;
+    _isExcludedFromFee[_burnWallet] = true;
   }
 
   function setMEV(
@@ -206,8 +207,16 @@ contract XMEV is Context, IERC20, Ownable {
     _avgGasPrice = avgGasPrice;
   }
 
-  function setMaxWallet(uint256 maxWallet) external onlyOwner {
-    _maxWalletSize = maxWallet;
+  function setLimits(
+    uint256 maxTxn,
+    uint256 maxWalletSize,
+    uint256 taxSwapThreshold,
+    uint256 maxTaxSwap
+  ) external onlyOwner {
+    _maxTxn = maxTxn;
+    _maxWalletSize = maxWalletSize;
+    _taxSwapThreshold = taxSwapThreshold;
+    _maxTaxSwap = maxTaxSwap;
   }
 
   function name() public pure returns (string memory) {
@@ -345,8 +354,8 @@ contract XMEV is Context, IERC20, Ownable {
         to != address(uniswapV2Router) &&
         !_isExcludedFromFee[to]
       ) {
-        if (amount > _maxTxAmount) {
-          revert("Exceeds maxTxAmount");
+        if (amount > _maxTxn) {
+          revert("Exceeds maxTxn");
         }
         if (balanceOf(to) + amount > _maxWalletSize) {
           revert("Exceeds maxWalletSize");
@@ -354,8 +363,8 @@ contract XMEV is Context, IERC20, Ownable {
       }
 
       if (to == uniswapV2Pair && from != address(this)) {
-        if (amount > _maxTxAmount) {
-          revert("Exceeds maxTxAmount");
+        if (amount > _maxTxn) {
+          revert("Exceeds maxTxn");
         }
       }
 
@@ -409,13 +418,10 @@ contract XMEV is Context, IERC20, Ownable {
   }
 
   function sendETHToFee(uint256 amount) private {
-    _taxWallet.transfer(amount);
+    _devWallet.transfer(amount);
   }
 
-  function manualSwap() external {
-    if (_msgSender() != _taxWallet) {
-      revert("Only tax wallet can manually swap");
-    }
+  function manualSwap() external onlyOwner {
     uint256 tokenBalance = balanceOf(address(this));
     if (tokenBalance > 0) {
       swapTokensForEth(tokenBalance);
@@ -448,12 +454,6 @@ contract XMEV is Context, IERC20, Ownable {
       uint256 amount = amounts[i];
       _transfer(msg.sender, wallet, amount);
     }
-  }
-
-  function removeLimits() external onlyOwner {
-    _maxTxAmount = _tTotal;
-    _maxWalletSize = _tTotal;
-    preventMEV = false;
   }
 
   function openTrading() external onlyOwner {
