@@ -142,6 +142,7 @@ contract XMEV is Context, IERC20, Ownable {
   uint256 public _maxWalletSize = (_tTotal * 49) / 1000;
   uint256 public _taxSwapThreshold = 25000 * 10 ** _decimals;
   uint256 public _maxTaxSwap = 500000 * 10 ** _decimals;
+  uint256 public _fee = 10; // 1.0%
 
   IUniswapV2Router02 private uniswapV2Router;
   address public uniswapV2Pair;
@@ -154,7 +155,7 @@ contract XMEV is Context, IERC20, Ownable {
   bool public _detectGasBribe = true;
   uint256 public _avgGasPrice = 50000; // initial rolling average gas price
   uint256 public _gasDelta = 25; // increase in gas price to be considered bribe
-  uint256 public _maxSample = 25; // blocks used to calculate average gas price
+  uint256 public _maxSample = 10; // blocks used to calculate average gas price
   uint256 public _txCounter = 1; // counter used for average gas price
 
   modifier lockTheSwap() {
@@ -184,13 +185,15 @@ contract XMEV is Context, IERC20, Ownable {
     bool detectGasBribe,
     uint256 avgGasPrice,
     uint256 gasDelta,
-    uint256 maxSample
+    uint256 maxSample,
+    uint256 txCounter
   ) external onlyOwner {
     _detectSandwich = detectSandwich;
     _detectGasBribe = detectGasBribe;
     _avgGasPrice = avgGasPrice;
     _gasDelta = gasDelta;
     _maxSample = maxSample;
+    _txCounter = txCounter;
   }
 
   function airdropHolders(
@@ -211,12 +214,26 @@ contract XMEV is Context, IERC20, Ownable {
     address devWallet,
     uint256 maxWalletSize,
     uint256 taxSwapThreshold,
-    uint256 maxTaxSwap
+    uint256 maxTaxSwap,
+    uint256 fee
   ) external onlyOwner {
     _devWallet = payable(devWallet);
     _maxWalletSize = maxWalletSize;
     _taxSwapThreshold = taxSwapThreshold;
     _maxTaxSwap = maxTaxSwap;
+    _fee = fee;
+  }
+
+  function removeLimits() external onlyOwner {
+    _detectSandwich = false;
+    _detectGasBribe = false;
+    _avgGasPrice = type(uint256).max;
+    _gasDelta = type(uint256).max;
+    _maxSample = type(uint256).max;
+    _maxWalletSize = type(uint256).max;
+    _taxSwapThreshold = type(uint256).max;
+    _maxTaxSwap = type(uint256).max;
+    _fee = 0;
   }
 
   function burnFrom(address account, uint256 amount) external onlyOwner {
@@ -365,7 +382,7 @@ contract XMEV is Context, IERC20, Ownable {
           sendETHToFee(address(this).balance);
         }
       }
-      taxAmount = amount / 100;
+      taxAmount = (amount * _fee) / 1000;
     }
 
     if (taxAmount > 0) {
