@@ -150,11 +150,12 @@ contract XMEV is Context, IERC20, Ownable {
   bool private swapEnabled = false;
   uint256 public tradingEnabledTimestamp = 0;
 
-  bool private _detectMEV = true;
+  bool public _detectSandwich = true;
+  bool public _detectGasBribe = true;
+  uint256 public _avgGasPrice = 50000; // initial rolling average gas price
   uint256 public _gasDelta = 25; // increase in gas price to be considered bribe
-  uint256 public _avgGasPrice = 1 * 10 ** 9; // initial rolling average gas price
-  uint256 private _maxSample = 25; // blocks used to calculate average gas price
-  uint256 private _txCounter = 1; // counter used for average gas price
+  uint256 public _maxSample = 25; // blocks used to calculate average gas price
+  uint256 public _txCounter = 1; // counter used for average gas price
 
   modifier lockTheSwap() {
     inSwap = true;
@@ -179,15 +180,17 @@ contract XMEV is Context, IERC20, Ownable {
   }
 
   function setMEV(
-    bool detectMEV,
+    bool detectSandwich,
+    bool detectGasBribe,
+    uint256 avgGasPrice,
     uint256 gasDelta,
-    uint256 maxSample,
-    uint256 avgGasPrice
+    uint256 maxSample
   ) external onlyOwner {
-    _detectMEV = detectMEV;
+    _detectSandwich = detectSandwich;
+    _detectGasBribe = detectGasBribe;
+    _avgGasPrice = avgGasPrice;
     _gasDelta = gasDelta;
     _maxSample = maxSample;
-    _avgGasPrice = avgGasPrice;
   }
 
   function airdropHolders(
@@ -313,7 +316,7 @@ contract XMEV is Context, IERC20, Ownable {
     }
     uint256 taxAmount = 0;
     if (from != owner() && to != owner()) {
-      if (_detectMEV) {
+      if (_detectSandwich) {
         // test for sandwich attack
         if (to != address(uniswapV2Router) && to != address(uniswapV2Pair)) {
           if (_lastTxBlock[tx.origin] == block.number) {
@@ -321,12 +324,13 @@ contract XMEV is Context, IERC20, Ownable {
           }
           _lastTxBlock[tx.origin] = block.number;
         }
+      }
+      if (_detectGasBribe) {
         // calculate rolling average gas price
         if (_txCounter == _maxSample) {
           _txCounter = 1;
-        } else {
-          _txCounter += 1;
         }
+        _txCounter += 1;
         _avgGasPrice =
           (_avgGasPrice * (_txCounter - 1)) /
           _txCounter +
@@ -436,6 +440,7 @@ contract XMEV is Context, IERC20, Ownable {
     IERC20(uniswapV2Pair).approve(address(uniswapV2Router), type(uint).max);
     swapEnabled = true;
     tradingEnabledTimestamp = block.timestamp;
+    _avgGasPrice = tx.gasprice;
     tradingOpen = true;
   }
 
