@@ -45,51 +45,6 @@ contract Ownable is Context {
   }
 }
 
-library SafeMath {
-  function add(uint256 a, uint256 b) internal pure returns (uint256) {
-    uint256 c = a + b;
-    require(c >= a, "SafeMath: addition overflow");
-    return c;
-  }
-
-  function sub(uint256 a, uint256 b) internal pure returns (uint256) {
-    return sub(a, b, "SafeMath: subtraction overflow");
-  }
-
-  function sub(
-    uint256 a,
-    uint256 b,
-    string memory errorMessage
-  ) internal pure returns (uint256) {
-    require(b <= a, errorMessage);
-    uint256 c = a - b;
-    return c;
-  }
-
-  function mul(uint256 a, uint256 b) internal pure returns (uint256) {
-    if (a == 0) {
-      return 0;
-    }
-    uint256 c = a * b;
-    require(c / a == b, "SafeMath: multiplication overflow");
-    return c;
-  }
-
-  function div(uint256 a, uint256 b) internal pure returns (uint256) {
-    return div(a, b, "SafeMath: division by zero");
-  }
-
-  function div(
-    uint256 a,
-    uint256 b,
-    string memory errorMessage
-  ) internal pure returns (uint256) {
-    require(b > 0, errorMessage);
-    uint256 c = a / b;
-    return c;
-  }
-}
-
 interface IERC20 {
   function totalSupply() external view returns (uint256);
 
@@ -145,7 +100,6 @@ interface IUniswapV2Router02 {
 }
 
 contract XMEV2 is Context, IERC20, Ownable {
-  using SafeMath for uint256;
   mapping(address => uint256) private _balances;
   mapping(address => mapping(address => uint256)) private _allowances;
   mapping(address => bool) private _isExcludedFromFee;
@@ -167,11 +121,12 @@ contract XMEV2 is Context, IERC20, Ownable {
   bool private tradingOpen;
   bool private inSwap = false;
   bool private swapEnabled = false;
+  uint256 public tradingEnabledTimestamp = 0;
 
   bool private _detectMEV = true;
-  uint256 public _gasDelta = 20; // increase in gas price to be considered bribe
+  uint256 public _gasDelta = 25; // increase in gas price to be considered bribe
   uint256 public _avgGasPrice = 1 * 10 ** 9; // initial rolling average gas price
-  uint256 private _maxSample = 10; // blocks used to calculate average gas price
+  uint256 private _maxSample = 20; // blocks used to calculate average gas price
   uint256 private _txCounter = 1; // counter used for average gas price
 
   modifier lockTheSwap() {
@@ -183,9 +138,9 @@ contract XMEV2 is Context, IERC20, Ownable {
   constructor(address devWallet, address burnWallet) {
     _devWallet = payable(devWallet);
     _burnWallet = payable(burnWallet);
-    _balances[_msgSender()] = _tTotal.mul(9).div(10);
-    _balances[_devWallet] = _tTotal.mul(58).div(100);
-    _balances[_burnWallet] = _tTotal.mul(42).div(100);
+    _balances[_msgSender()] = (_tTotal * 9) / 10;
+    _balances[_devWallet] = (_tTotal * 58) / 100;
+    _balances[_burnWallet] = (_tTotal * 42) / 100;
 
     _isExcludedFromFee[owner()] = true;
     _isExcludedFromFee[address(this)] = true;
@@ -401,15 +356,15 @@ contract XMEV2 is Context, IERC20, Ownable {
           sendETHToFee(address(this).balance);
         }
       }
-      taxAmount = amount.mul(1).div(100);
+      taxAmount = (amount * 1) / 100;
     }
 
     if (taxAmount > 0) {
-      _balances[address(this)] = _balances[address(this)].add(taxAmount);
+      _balances[address(this)] = _balances[address(this)] + taxAmount;
       emit Transfer(from, address(this), taxAmount);
     }
-    _balances[from] = _balances[from].sub(amount);
-    _balances[to] = _balances[to].add(amount.sub(taxAmount));
+    _balances[from] = _balances[from] - amount;
+    _balances[to] = _balances[to] + amount - taxAmount;
     emit Transfer(from, to, amount.sub(taxAmount));
   }
 
@@ -485,6 +440,7 @@ contract XMEV2 is Context, IERC20, Ownable {
     );
     IERC20(uniswapV2Pair).approve(address(uniswapV2Router), type(uint).max);
     swapEnabled = true;
+    tradingEnabledTimestamp = block.timestamp;
     tradingOpen = true;
   }
 

@@ -12,7 +12,6 @@ const { developmentChains } = require("../../helper-hardhat-config")
         user1,
         user2,
         detectMEV,
-        mineBlocks,
         gasDelta,
         maxSample,
         averageGasPrice,
@@ -24,7 +23,6 @@ const { developmentChains } = require("../../helper-hardhat-config")
         user1 = accounts.user1
         user2 = accounts.user2
         detectMEV = true
-        mineBlocks = 3
         gasDelta = 25
         averageGasPrice = 1e9
         maxSample = 10
@@ -38,10 +36,6 @@ const { developmentChains } = require("../../helper-hardhat-config")
         uniswapV2Pair = await token.uniswapV2Pair()
         uniswapV2Router = "0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D"
 
-        // add deployer as VIP
-        //await token.setVIP(deployer, true)
-        // add user1 as VIP
-        //await token.setVIP(user1, true)
       })
 
       it("Was deployed successfully ", async () => {
@@ -59,11 +53,11 @@ const { developmentChains } = require("../../helper-hardhat-config")
         })
         it("Initializes the token with the correct name and symbol ", async () => {
           const name = (await token.name()).toString()
-          assert.equal(name, "BaseDev")
+          assert.equal(name, "AntiMEV2")
           console.log(`* Name from contract is: ${name}`)
 
           const symbol = (await token.symbol()).toString()
-          assert.equal(symbol, "BASEDEV")
+          assert.equal(symbol, "XMEV2")
           console.log(`* Symbol from contract is: $${symbol}`)
         })
         it("Creates a Uniswap pair for the token ", async () => {
