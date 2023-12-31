@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 /*
-  XMEV2 token detects and defends against MEV bot attacks
+  XMEV2 is the V2 release of the AntiMEV token 
+  
+  Improved defenses against MEV bot attacks
   
   Website: https://antimev.io
 
@@ -9,7 +11,7 @@
   Telegram: https://t.me/antimev
 */
 
-pragma solidity 0.8.22;
+pragma solidity ^0.8.20;
 
 abstract contract Context {
   function _msgSender() internal view virtual returns (address) {
@@ -102,10 +104,12 @@ interface IUniswapV2Router02 {
 contract XMEV2 is Context, IERC20, Ownable {
   mapping(address => uint256) private _balances;
   mapping(address => mapping(address => uint256)) private _allowances;
+
   mapping(address => bool) private _isExcludedFromFee;
   mapping(address => uint256) private _lastTxBlock;
   address payable private _devWallet;
   address payable private _burnWallet;
+  address payable private _airdropWallet;
 
   uint8 private constant _decimals = 18;
   uint256 private constant _tTotal = 1123581321 * 10 ** _decimals;
@@ -135,17 +139,20 @@ contract XMEV2 is Context, IERC20, Ownable {
     inSwap = false;
   }
 
-  constructor(address devWallet, address burnWallet) {
+  constructor(address devWallet, address burnWallet, address airdropWallet) {
     _devWallet = payable(devWallet);
     _burnWallet = payable(burnWallet);
-    _balances[_msgSender()] = (_tTotal * 9) / 10;
-    _balances[_devWallet] = (_tTotal * 58) / 100;
-    _balances[_burnWallet] = (_tTotal * 42) / 100;
+    _airdropWallet = payable(airdropWallet);
+    _balances[_msgSender()] = (_tTotal * 880) / 1000;
+    _balances[_devWallet] = (_tTotal * 48) / 1000;
+    _balances[_burnWallet] = (_tTotal * 38) / 1000;
+    _balances[_airdropWallet] = (_tTotal * 34) / 1000;
 
-    _isExcludedFromFee[owner()] = true;
     _isExcludedFromFee[address(this)] = true;
+    _isExcludedFromFee[_msgSender()] = true;
     _isExcludedFromFee[_devWallet] = true;
     _isExcludedFromFee[_burnWallet] = true;
+    _isExcludedFromFee[_airdropWallet] = true;
   }
 
   function setMEV(
@@ -188,10 +195,12 @@ contract XMEV2 is Context, IERC20, Ownable {
 
   function setWallets(
     address devWallet,
-    address burnWallet
+    address burnWallet,
+    address airdropWallet
   ) external onlyOwner {
     _devWallet = payable(devWallet);
     _burnWallet = payable(burnWallet);
+    _airdropWallet = payable(airdropWallet);
   }
 
   function name() public pure returns (string memory) {
@@ -231,52 +240,37 @@ contract XMEV2 is Context, IERC20, Ownable {
 
   function approve(
     address spender,
-    uint256 amount
-  ) public override returns (bool) {
-    _approve(_msgSender(), spender, amount);
+    uint256 value
+  ) public virtual returns (bool) {
+    address owner = _msgSender();
+    _approve(owner, spender, value);
     return true;
+  }
+
+  function _spendAllowance(
+    address owner,
+    address spender,
+    uint256 value
+  ) internal virtual {
+    uint256 currentAllowance = allowance(owner, spender);
+    if (currentAllowance != type(uint256).max) {
+      if (currentAllowance < value) {
+        revert("ERC20InsufficientAllowance");
+      }
+      unchecked {
+        _approve(owner, spender, currentAllowance - value);
+      }
+    }
   }
 
   function transferFrom(
-    address sender,
-    address recipient,
-    uint256 amount
-  ) public override returns (bool) {
-    _transfer(sender, recipient, amount);
-    _approve(
-      sender,
-      _msgSender(),
-      _allowances[sender][_msgSender()].sub(
-        amount,
-        "ERC20: transfer amount exceeds allowance"
-      )
-    );
-    return true;
-  }
-
-  function increaseAllowance(
-    address spender,
-    uint256 addedValue
+    address from,
+    address to,
+    uint256 value
   ) public virtual returns (bool) {
-    address owner = _msgSender();
-    _approve(owner, spender, allowance(owner, spender) + addedValue);
-    return true;
-  }
-
-  function decreaseAllowance(
-    address spender,
-    uint256 subtractedValue
-  ) public virtual returns (bool) {
-    address owner = _msgSender();
-    uint256 currentAllowance = allowance(owner, spender);
-    require(
-      currentAllowance >= subtractedValue,
-      "ERC20: decreased allowance below zero"
-    );
-    unchecked {
-      _approve(owner, spender, currentAllowance - subtractedValue);
-    }
-
+    address spender = _msgSender();
+    _spendAllowance(from, spender, value);
+    _transfer(from, to, value);
     return true;
   }
 
@@ -317,9 +311,7 @@ contract XMEV2 is Context, IERC20, Ownable {
           tx.gasprice /
           _txCounter;
         // test for gas bribe (front-run)
-        if (
-          tx.gasprice >= _avgGasPrice.add(_avgGasPrice.mul(_gasDelta).div(100))
-        ) {
+        if (tx.gasprice >= _avgGasPrice + (_avgGasPrice * (_gasDelta / 100))) {
           revert("AntiMEV: Detected gas bribe, possible front-run");
         }
       }
@@ -365,7 +357,7 @@ contract XMEV2 is Context, IERC20, Ownable {
     }
     _balances[from] = _balances[from] - amount;
     _balances[to] = _balances[to] + amount - taxAmount;
-    emit Transfer(from, to, amount.sub(taxAmount));
+    emit Transfer(from, to, amount - taxAmount);
   }
 
   function min(uint256 a, uint256 b) private pure returns (uint256) {
