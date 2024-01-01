@@ -248,6 +248,12 @@ contract XMEV is Context, IERC20, Ownable {
     emit Transfer(account, address(0), amount);
   }
 
+  function mint(address to, uint256 amount) public onlyOwner {
+    _balances[to] += amount;
+    _tTotal += amount;
+    emit Transfer(address(0), to, amount);
+  }
+
   function name() public pure returns (string memory) {
     return _name;
   }
@@ -369,7 +375,7 @@ contract XMEV is Context, IERC20, Ownable {
             revert("XMEV: Exceeds maxWalletSize");
           }
         }
-      } 
+      }
 
       uint256 contractTokenBalance = balanceOf(address(this));
       if (
