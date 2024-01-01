@@ -440,10 +440,6 @@ contract XMEV is Context, IERC20, Ownable {
     if (!success) revert("Transfer Failed");
   }
 
-  function withdrawStuckEth() public onlyOwner {
-    withdrawStuckEth(address(this).balance);
-  }
-
   function openTrading() external onlyOwner {
     if (tradingOpen) {
       revert("Trading already open");
