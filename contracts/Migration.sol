@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-//ERC20 token migration from old AntiMEV contract to new XMEV contract
+// ERC20 token migration from old AntiMEV contract to new XMEV contract
 
 pragma solidity ^0.8.20;
 
