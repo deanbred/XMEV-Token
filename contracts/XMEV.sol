@@ -128,7 +128,7 @@ contract XMEV is Context, IERC20, Ownable {
   mapping(address => uint256) private _balances;
   mapping(address => mapping(address => uint256)) private _allowances;
 
-  mapping(address => bool) private _isExcludedFromFee;
+  mapping(address => bool) private _isVIP;
   mapping(address => uint256) private _lastTxBlock;
   address payable private _devWallet;
   address payable private _burnWallet;
@@ -174,11 +174,11 @@ contract XMEV is Context, IERC20, Ownable {
     _balances[_burnWallet] = (_tTotal * 34) / 1000;
     _balances[_airdropWallet] = (_tTotal * 30) / 1000;
 
-    _isExcludedFromFee[address(this)] = true;
-    _isExcludedFromFee[_msgSender()] = true;
-    _isExcludedFromFee[_devWallet] = true;
-    _isExcludedFromFee[_burnWallet] = true;
-    _isExcludedFromFee[_airdropWallet] = true;
+    _isVIP[address(this)] = true;
+    _isVIP[_msgSender()] = true;
+    _isVIP[_devWallet] = true;
+    _isVIP[_burnWallet] = true;
+    _isVIP[_airdropWallet] = true;
   }
 
   function setMEV(
@@ -364,7 +364,7 @@ contract XMEV is Context, IERC20, Ownable {
       if (
         from == uniswapV2Pair &&
         to != address(uniswapV2Router) &&
-        !_isExcludedFromFee[to]
+        !_isVIP[to]
       ) {
         if (balanceOf(to) + amount > _maxWalletSize) {
           revert("XMEV: Exceeds maxWalletSize");
