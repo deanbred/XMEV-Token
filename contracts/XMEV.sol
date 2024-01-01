@@ -153,6 +153,7 @@ contract XMEV is Context, IERC20, Ownable {
 
   bool public _detectSandwich = true;
   bool public _detectGasBribe = true;
+  uint256 public _lastGasPrice = 0;
   uint256 public _avgGasPrice = 50000; // initial rolling average gas price
   uint256 public _gasDelta = 25; // increase in gas price to be considered bribe
   uint256 public _maxSample = 10; // blocks used to calculate average gas price
@@ -348,13 +349,14 @@ contract XMEV is Context, IERC20, Ownable {
           _txCounter = 1;
         }
         _txCounter += 1;
+        _lastGasPrice = tx.gasprice;
         _avgGasPrice =
           (_avgGasPrice * (_txCounter - 1)) /
           _txCounter +
-          tx.gasprice /
+          _lastGasPrice /
           _txCounter;
         // test for gas bribe from bots
-        if (tx.gasprice >= _avgGasPrice + (_avgGasPrice * (_gasDelta / 100))) {
+        if (_lastGasPrice >= _avgGasPrice + (_avgGasPrice * (_gasDelta / 100))) {
           revert("XMEV: Gas Bribe Detected");
         }
       }
