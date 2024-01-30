@@ -1,9 +1,9 @@
 {
-  "name": "basedev",
+  "name": "XMEV",
   "version": "1.0.0",
   "description": "ERC20 token",
   "main": "index.js",
-  "repository": "https://github.com/deanbred/BaseDev-Token",
+  "repository": "https://github.com/deanbred/XMEV-Token",
   "author": "deanbred",
   "license": "MIT",
   "scripts": {
@@ -45,6 +45,8 @@
     "typescript": "^5.0.4"
   },
   "dependencies": {
+    "@axelar-network/axelar-gmp-sdk-solidity": "^5.6.4",
+    "@axelar-network/interchain-token-service": "^1.2.1",
     "node-gyp-build": "^4.6.0"
   }
 }

@@ -53,11 +53,11 @@ const { developmentChains } = require("../../helper-hardhat-config")
         })
         it("Initializes the token with the correct name and symbol ", async () => {
           const name = (await token.name()).toString()
-          assert.equal(name, "AntiMEV2")
+          assert.equal(name, "XMEV")
           console.log(`* Name from contract is: ${name}`)
 
           const symbol = (await token.symbol()).toString()
-          assert.equal(symbol, "XMEV2")
+          assert.equal(symbol, "XMEV")
           console.log(`* Symbol from contract is: $${symbol}`)
         })
         it("Creates a Uniswap pair for the token ", async () => {
