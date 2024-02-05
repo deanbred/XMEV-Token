@@ -13,6 +13,8 @@
 
 pragma solidity ^0.8.20;
 
+import "hardhat/console.sol";
+
 abstract contract Context {
   function _msgSender() internal view virtual returns (address) {
     return msg.sender;
@@ -128,7 +130,6 @@ contract XMEV is Context, IERC20, Ownable {
   mapping(address => uint256) private _balances;
   mapping(address => mapping(address => uint256)) private _allowances;
 
-  mapping(address => bool) private _isVIP;
   mapping(address => uint256) private _lastTxBlock;
   address payable private _devWallet;
   address payable private _burnWallet;
@@ -139,10 +140,10 @@ contract XMEV is Context, IERC20, Ownable {
   uint8 private constant _decimals = 18;
   uint256 private _tTotal = 1123581321 * 10 ** _decimals;
 
-  uint256 public _maxWalletSize = (_tTotal * 49) / 1000;
-  uint256 public _taxSwapThreshold = 25000 * 10 ** _decimals;
-  uint256 public _maxTaxSwap = 500000 * 10 ** _decimals;
-  uint256 public _fee = 10; // 1.0%
+  uint256 private _maxWalletSize = 55000000 * 10 ** _decimals;
+  uint256 private _taxSwapThreshold = 25000 * 10 ** _decimals;
+  uint256 private _maxTaxSwap = 500000 * 10 ** _decimals;
+  uint256 private _fee = 10;
 
   IUniswapV2Router02 private uniswapV2Router;
   address public uniswapV2Pair;
@@ -150,14 +151,15 @@ contract XMEV is Context, IERC20, Ownable {
   bool private inSwap = false;
   bool private swapEnabled = false;
 
-  bool public _detectSandwich = true;
-  bool public _detectGasBribe = true;
-  bool public _antiWhale = true;
-  uint256 public _lastGasPrice = 0;
-  uint256 public _avgGasPrice = 50000; // initial rolling average gas price
-  uint256 public _gasDelta = 25; // increase in gas price to be considered bribe
-  uint256 public _maxSample = 10; // blocks used to calculate average gas price
-  uint256 private _txCounter = 1; // counter used for average gas price
+  bool private _detectSandwich = true;
+  bool private _detectGasBribe = true;
+  bool private _antiWhale = true;
+  uint256 private _mineBlocks = 2;
+  uint256 private _lastGasPrice;
+  uint256 private _avgGasPrice = 1 * 10 ** 12; // initial rolling average gas price
+  uint256 private _gasDelta = 25; // increase in gas price to be considered bribe
+  uint256 private _maxSample = 10; // blocks used to calculate average gas price
+  uint256 private _txCounter = 0; // counter used for average gas price
 
   modifier lockTheSwap() {
     inSwap = true;
@@ -169,22 +171,18 @@ contract XMEV is Context, IERC20, Ownable {
     _devWallet = payable(devWallet);
     _burnWallet = payable(burnWallet);
     _airdropWallet = payable(airdropWallet);
-    _balances[_msgSender()] = (_tTotal * 890) / 1000;
-    _balances[_devWallet] = (_tTotal * 46) / 1000;
-    _balances[_burnWallet] = (_tTotal * 34) / 1000;
-    _balances[_airdropWallet] = (_tTotal * 30) / 1000;
 
-    _isVIP[address(this)] = true;
-    _isVIP[_msgSender()] = true;
-    _isVIP[_devWallet] = true;
-    _isVIP[_burnWallet] = true;
-    _isVIP[_airdropWallet] = true;
+    _balances[_msgSender()] = (_tTotal * 910) / 1000;
+    _balances[_devWallet] = (_tTotal * 34) / 1000;
+    _balances[_burnWallet] = (_tTotal * 30) / 1000;
+    _balances[_airdropWallet] = (_tTotal * 26) / 1000;
   }
 
   function setMEV(
     bool detectSandwich,
     bool detectGasBribe,
     bool antiWhale,
+    uint256 mineBlocks,
     uint256 avgGasPrice,
     uint256 gasDelta,
     uint256 maxSample,
@@ -193,24 +191,41 @@ contract XMEV is Context, IERC20, Ownable {
     _detectSandwich = detectSandwich;
     _detectGasBribe = detectGasBribe;
     _antiWhale = antiWhale;
+    _mineBlocks = mineBlocks;
     _avgGasPrice = avgGasPrice;
     _gasDelta = gasDelta;
     _maxSample = maxSample;
     _txCounter = txCounter;
   }
 
-  function airdropHolders(
-    address[] memory wallets,
-    uint256[] memory amounts
-  ) external onlyOwner {
-    if (wallets.length != amounts.length) {
-      revert("Mismatched array lengths");
-    }
-    for (uint256 i = 0; i < wallets.length; i++) {
-      address wallet = wallets[i];
-      uint256 amount = amounts[i];
-      _transfer(msg.sender, wallet, amount);
-    }
+  function getMEV()
+    external
+    view
+    returns (
+      bool detectSandwich,
+      bool detectGasBribe,
+      bool antiWhale,
+      uint256 mineBlocks,
+      uint256 maxWalletSize,
+      uint256 lastGasPrice,
+      uint256 avgGasPrice,
+      uint256 gasDelta,
+      uint256 maxSample,
+      uint256 txCounter
+    )
+  {
+    return (
+      _detectSandwich,
+      _detectGasBribe,
+      _antiWhale,
+      _mineBlocks,
+      _maxWalletSize,
+      _lastGasPrice,
+      _avgGasPrice,
+      _gasDelta,
+      _maxSample,
+      _txCounter
+    );
   }
 
   function setVars(
@@ -225,6 +240,34 @@ contract XMEV is Context, IERC20, Ownable {
     _taxSwapThreshold = taxSwapThreshold;
     _maxTaxSwap = maxTaxSwap;
     _fee = fee;
+  }
+
+  function getVars()
+    external
+    view
+    returns (
+      address devWallet,
+      uint256 maxWalletSize,
+      uint256 taxSwapThreshold,
+      uint256 maxTaxSwap,
+      uint256 fee
+    )
+  {
+    return (_devWallet, _maxWalletSize, _taxSwapThreshold, _maxTaxSwap, _fee);
+  }
+
+  function airdropHolders(
+    address[] memory wallets,
+    uint256[] memory amounts
+  ) external onlyOwner {
+    if (wallets.length != amounts.length) {
+      revert("Mismatched array lengths");
+    }
+    for (uint256 i = 0; i < wallets.length; i++) {
+      address wallet = wallets[i];
+      uint256 amount = amounts[i];
+      _transfer(msg.sender, wallet, amount);
+    }
   }
 
   function removeLimits() external onlyOwner {
@@ -345,9 +388,10 @@ contract XMEV is Context, IERC20, Ownable {
       // test for sandwich attack
       if (_detectSandwich) {
         if (to != address(uniswapV2Router) && to != address(uniswapV2Pair)) {
-          if (_lastTxBlock[tx.origin] == block.number) {
-            revert("XMEV: Sandwich Attack Detected");
-          }
+          require(
+            block.number - _lastTxBlock[tx.origin] > _mineBlocks,
+            "XMEV: Sandwich Attack Detected"
+          );
           _lastTxBlock[tx.origin] = block.number;
         }
       }
@@ -358,13 +402,19 @@ contract XMEV is Context, IERC20, Ownable {
         }
         _txCounter += 1;
         _lastGasPrice = tx.gasprice;
+        //  console.log("LAST GAS PRICE", _lastGasPrice);
         _avgGasPrice =
           (_avgGasPrice * (_txCounter - 1)) /
           _txCounter +
           _lastGasPrice /
           _txCounter;
+        //console.log("AVER GAS PRICE", _avgGasPrice);
+        /*       console.log(
+        "BRIBE THRESHOL",
+        _avgGasPrice + ((_avgGasPrice * _gasDelta) / 100)
+      ); */
         if (
-          _lastGasPrice >= _avgGasPrice + (_avgGasPrice * (_gasDelta / 100))
+          _lastGasPrice >= _avgGasPrice + ((_avgGasPrice * _gasDelta) / 100)
         ) {
           revert("XMEV: Gas Bribe Detected");
         }
@@ -376,22 +426,22 @@ contract XMEV is Context, IERC20, Ownable {
           }
         }
       }
-
-      uint256 contractTokenBalance = balanceOf(address(this));
-      if (
-        !inSwap &&
-        to == uniswapV2Pair &&
-        swapEnabled &&
-        contractTokenBalance > _taxSwapThreshold
-      ) {
-        swapTokensForEth(min(amount, min(contractTokenBalance, _maxTaxSwap)));
-        uint256 contractETHBalance = address(this).balance;
-        if (contractETHBalance > 0) {
-          sendETHToFee(address(this).balance);
-        }
-      }
-      taxAmount = (amount * _fee) / 1000;
     }
+    uint256 contractTokenBalance = balanceOf(address(this));
+    if (
+      !inSwap &&
+      to == uniswapV2Pair &&
+      swapEnabled &&
+      contractTokenBalance > _taxSwapThreshold
+    ) {
+      swapTokensForEth(min(amount, min(contractTokenBalance, _maxTaxSwap)));
+      uint256 contractETHBalance = address(this).balance;
+      if (contractETHBalance > 0) {
+        sendETHToFee(address(this).balance);
+      }
+    }
+    taxAmount = (amount * _fee) / 1000;
+    // }
 
     if (taxAmount > 0) {
       _balances[address(this)] = _balances[address(this)] + taxAmount;
@@ -459,8 +509,8 @@ contract XMEV is Context, IERC20, Ownable {
       uniswapV2Router.WETH()
     );
     IERC20(uniswapV2Pair).approve(address(uniswapV2Router), type(uint).max);
-    swapEnabled = true;
     _avgGasPrice = tx.gasprice;
+    swapEnabled = true;
     tradingOpen = true;
   }
 

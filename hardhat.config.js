@@ -10,8 +10,6 @@ require("dotenv").config()
 
 /** @type import('hardhat/config').HardhatUserConfig */
 const PRIVATE_KEY = process.env.PRIVATE_KEY
-const REPORT_GAS = process.env.REPORT_GAS
-const CONTRACT_SIZER = process.env.CONTRACT_SIZER
 
 module.exports = {
   defaultNetwork: "hardhat",
