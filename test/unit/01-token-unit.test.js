@@ -15,7 +15,7 @@ console.log(network.config.chainId)
 
         tTotal = 1123581321 * 10 ** 18
         maxWalletSize = 55000000 * 10 ** 18
-        
+
         detectSandwich = false
         detectGasBribe = true
         antiWhale = true
@@ -70,7 +70,7 @@ console.log(network.config.chainId)
         it("Should calculate the average gas price of 10 transfers", async () => {
           //await token.transferOwnership(deployer)
 
-/*           await token.setMEV(
+          /*           await token.setMEV(
             detectSandwich,
             detectGasBribe,
             antiWhale,
@@ -142,8 +142,7 @@ console.log(network.config.chainId)
         })
 
         it("Should prevent transfers over maxWallet", async () => {
-          //     console.log(`maxWallet: ${maxWalletSize}`)
-
+          console.log(`maxWallet: ${maxWalletSize}`)
           const over = "55000001000000000000000000"
 
           await expect(token.transfer(user1, over)).to.be.revertedWith(
@@ -162,7 +161,7 @@ console.log(network.config.chainId)
         it("Should allow 2 transfers after block delay", async () => {
           await token.transfer(user1, tokensToSend)
 
-          for (let i = 0; i < 3; i++) {
+          for (let i = 0; i < mineBlocks; i++) {
             await ethers.provider.send("evm_mine", [])
           }
 
@@ -183,7 +182,7 @@ console.log(network.config.chainId)
           await token.approve(deployer, tokensToSend)
           await token.transferFrom(deployer, user1, halfToSend)
 
-          for (let j = 0; j < 3; j++) {
+          for (let j = 0; j < mineBlocks; j++) {
             await ethers.provider.send("evm_mine")
           }
 
@@ -199,62 +198,12 @@ console.log(network.config.chainId)
         })
       })
 
-      /*       describe("* VIP *", () => {
-        it("Should allow VIP to do 2 transfers in the same block", async () => {
-          await token.setVIP(user1, true)
-          await token.transfer(user1, tokensToSend)
-          expect(await token.transfer(user1, tokensToSend)).to.not.be.reverted
-        })
-
-        it("Should not allow regular user to do 2 transfers", async () => {
-          await token.setVIP(deployer, false)
-          await token.setVIP(user1, false)
-          await token.transfer(user1, tokensToSend)
-
-          expect(await token.transfer(user1, tokensToSend)).to.be.revertedWith(
-            "XMEV: Sandwich Attack Detected"
-          )
-        })
-
-        it("Should allow VIP to transfer with a gas bribe", async () => {
-          await token.setMEV(
-            detectSandwich,
-            detectGasBribe,
-            antiWhale,
-            avgGasPrice,
-            gasDelta,
-            maxSample,
-            txCounter
-          )
-
-          const transactionResponse = await token.transfer(user1, tokensToSend)
-          const transactionReceipt = await transactionResponse.wait()
-          const { gasUsed, effectiveGasPrice } = transactionReceipt
-          const transferGasCost = gasUsed.mul(effectiveGasPrice)
-          const bribe = effectiveGasPrice.add(
-            effectiveGasPrice.mul(gasDelta + 50).div(100)
-          )
-
-          console.log(`* gasUsed: ${gasUsed}`)
-          console.log(`* effectiveGasPrice(tx.gasprice): ${effectiveGasPrice}`)
-          console.log(`* transferGasCost: ${transferGasCost}`)
-          console.log(`* bribe-test: ${bribe}`)
-          console.log("---------------------------")
-
-          expect(
-            await token.transfer(user1, tokensToSend, {
-              gasPrice: bribe,
-            })
-          ).to.not.be.reverted
-        })
-      }) */
-
-      /*       describe("* Allowances *", () => {
+      describe("* Allowances *", () => {
         const tokensToSpend = ethers.utils.parseEther("1")
         const overDraft = ethers.utils.parseEther("1.1")
 
         beforeEach(async () => {
-          playerToken = await ethers.getContract("token", user1)
+          playerToken = await ethers.getContract("XMEV", user1)
         })
         it("Should set allowance accurately", async () => {
           await token.approve(user1, tokensToSpend)
@@ -269,21 +218,24 @@ console.log(network.config.chainId)
 
           await playerToken.transferFrom(deployer, user1, tokensToSpend)
 
-          expect(await playerToken.balanceOf(user1)).to.equal(tokensToSpend)
+          const afterTax = tokensToSend.mul(99).div(100)
+          console.log(`afterTax: ${afterTax}`)
+
+          expect(await playerToken.balanceOf(user1)).to.equal(afterTax)
           console.log(`Tokens approved from contract: ${tokensToSpend}`)
         })
 
         it("Should not allow unnaproved user to do transfers", async () => {
           await expect(
             playerToken.transferFrom(deployer, user1, tokensToSpend)
-          ).to.be.revertedWith("ERC20: insufficient allowance")
+          ).to.be.revertedWith("ERC20InsufficientAllowance")
         })
 
         it("Should not allow user to go over the allowance", async () => {
           await token.approve(user1, tokensToSpend)
           await expect(
             playerToken.transferFrom(deployer, user1, overDraft)
-          ).to.be.revertedWith("ERC20: insufficient allowance")
+          ).to.be.revertedWith("ERC20InsufficientAllowance")
         })
 
         it("Should emit approval event when an approval occurs", async () => {
@@ -292,5 +244,5 @@ console.log(network.config.chainId)
             "Approval"
           )
         })
-      }) */
+      })
     })

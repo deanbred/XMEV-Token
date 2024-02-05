@@ -13,8 +13,6 @@
 
 pragma solidity ^0.8.20;
 
-import "hardhat/console.sol";
-
 abstract contract Context {
   function _msgSender() internal view virtual returns (address) {
     return msg.sender;
@@ -143,7 +141,7 @@ contract XMEV is Context, IERC20, Ownable {
   uint256 private _maxWalletSize = 55000000 * 10 ** _decimals;
   uint256 private _taxSwapThreshold = 25000 * 10 ** _decimals;
   uint256 private _maxTaxSwap = 500000 * 10 ** _decimals;
-  uint256 private _fee = 10;
+  uint256 private _fee = 0;
 
   IUniswapV2Router02 private uniswapV2Router;
   address public uniswapV2Pair;
@@ -232,14 +230,12 @@ contract XMEV is Context, IERC20, Ownable {
     address devWallet,
     uint256 maxWalletSize,
     uint256 taxSwapThreshold,
-    uint256 maxTaxSwap,
-    uint256 fee
+    uint256 maxTaxSwap
   ) external onlyOwner {
     _devWallet = payable(devWallet);
     _maxWalletSize = maxWalletSize;
     _taxSwapThreshold = taxSwapThreshold;
     _maxTaxSwap = maxTaxSwap;
-    _fee = fee;
   }
 
   function getVars()
@@ -254,6 +250,10 @@ contract XMEV is Context, IERC20, Ownable {
     )
   {
     return (_devWallet, _maxWalletSize, _taxSwapThreshold, _maxTaxSwap, _fee);
+  }
+
+  function setFee(uint256 fee) external onlyOwner {
+    _fee = fee;
   }
 
   function airdropHolders(
@@ -273,6 +273,8 @@ contract XMEV is Context, IERC20, Ownable {
   function removeLimits() external onlyOwner {
     _detectSandwich = false;
     _detectGasBribe = false;
+    _antiWhale = false;
+    _mineBlocks = 0;
     _avgGasPrice = type(uint256).max;
     _gasDelta = type(uint256).max;
     _maxSample = type(uint256).max;
@@ -395,30 +397,25 @@ contract XMEV is Context, IERC20, Ownable {
           _lastTxBlock[tx.origin] = block.number;
         }
       }
-      // test for gas bribes using rolling average
+      // test for front/back run via gas bribe
       if (_detectGasBribe) {
         if (_txCounter == _maxSample) {
           _txCounter = 1;
         }
         _txCounter += 1;
         _lastGasPrice = tx.gasprice;
-        //  console.log("LAST GAS PRICE", _lastGasPrice);
         _avgGasPrice =
           (_avgGasPrice * (_txCounter - 1)) /
           _txCounter +
           _lastGasPrice /
           _txCounter;
-        //console.log("AVER GAS PRICE", _avgGasPrice);
-        /*       console.log(
-        "BRIBE THRESHOL",
-        _avgGasPrice + ((_avgGasPrice * _gasDelta) / 100)
-      ); */
         if (
           _lastGasPrice >= _avgGasPrice + ((_avgGasPrice * _gasDelta) / 100)
         ) {
           revert("XMEV: Gas Bribe Detected");
         }
       }
+      // test for max wallet size
       if (_antiWhale) {
         if (to != address(uniswapV2Router) && to != address(uniswapV2Pair)) {
           if (balanceOf(to) + amount > _maxWalletSize) {
@@ -441,7 +438,6 @@ contract XMEV is Context, IERC20, Ownable {
       }
     }
     taxAmount = (amount * _fee) / 1000;
-    // }
 
     if (taxAmount > 0) {
       _balances[address(this)] = _balances[address(this)] + taxAmount;
