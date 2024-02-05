@@ -11,7 +11,7 @@
   Telegram: https://t.me/antimev
 */
 
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.22;
 
 abstract contract Context {
   function _msgSender() internal view virtual returns (address) {
@@ -152,10 +152,10 @@ contract XMEV is Context, IERC20, Ownable {
   bool private _detectSandwich = true;
   bool private _detectGasBribe = true;
   bool private _antiWhale = true;
-  uint256 private _mineBlocks = 2;
+  uint256 private _mineBlocks = 1;
   uint256 private _lastGasPrice;
   uint256 private _avgGasPrice = 1 * 10 ** 12; // initial rolling average gas price
-  uint256 private _gasDelta = 25; // increase in gas price to be considered bribe
+  uint256 private _gasDelta = 20; // increase in gas price to be considered bribe
   uint256 private _maxSample = 10; // blocks used to calculate average gas price
   uint256 private _txCounter = 0; // counter used for average gas price
 
@@ -204,7 +204,6 @@ contract XMEV is Context, IERC20, Ownable {
       bool detectGasBribe,
       bool antiWhale,
       uint256 mineBlocks,
-      uint256 maxWalletSize,
       uint256 lastGasPrice,
       uint256 avgGasPrice,
       uint256 gasDelta,
@@ -217,7 +216,6 @@ contract XMEV is Context, IERC20, Ownable {
       _detectGasBribe,
       _antiWhale,
       _mineBlocks,
-      _maxWalletSize,
       _lastGasPrice,
       _avgGasPrice,
       _gasDelta,
